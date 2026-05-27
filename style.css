@@ -579,3 +579,96 @@ body {
   font-size: 10px;
   color: #bdbdbd;
 }
+/* PROGRAMME */
+.prog-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: #9e9e9e;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 16px 16px 6px;
+}
+.prog-categorie-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #616161;
+  padding: 10px 0 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.prog-ex-list { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
+.prog-ex-item {
+  background: #f9f9f9;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.prog-ex-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  width: 100%;
+}
+.prog-ex-check {
+  width: 18px;
+  height: 18px;
+  accent-color: #1a73e8;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.prog-ex-name { font-size: 13px; color: #212121; }
+.prog-ex-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #212121;
+  margin-bottom: 10px;
+}
+
+/* HISTORIQUE PROGRAMMES */
+.prog-hist-card {
+  margin: 0 16px 10px;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 14px;
+}
+.prog-hist-card.prog-actif { border-color: #1a73e8; background: #f0f7ff; }
+.prog-hist-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 10px;
+}
+.prog-hist-nom {
+  font-size: 14px;
+  font-weight: 600;
+  color: #212121;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.prog-actif-badge {
+  font-size: 10px;
+  background: #1a73e8;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-weight: 500;
+}
+.prog-hist-dates { font-size: 11px; color: #9e9e9e; margin-top: 3px; }
+.prog-hist-ex { display: flex; flex-wrap: wrap; gap: 4px; }
+.prog-ex-pill {
+  font-size: 11px;
+  background: #f5f5f5;
+  color: #616161;
+  padding: 3px 8px;
+  border-radius: 20px;
+  border: 1px solid #e0e0e0;
+}
+.prog-hist-card.prog-actif .prog-ex-pill {
+  background: #e8f4fd;
+  color: #1a73e8;
+  border-color: #90caf9;
+}
