@@ -12,8 +12,8 @@ body {
 }
 
 /* ÉCRANS */
-.screen { display: none; min-height: 100vh; flex-direction: column; overflow-y: auto; }
-.screen.active { display: flex; flex-direction: column; }
+.screen { display: none; min-height: 100vh; flex-direction: column; }
+.screen.active { display: flex; }
 .screen-content { flex: 1; overflow-y: auto; padding-bottom: 80px; }
 .screen {
   overflow-y: auto;
