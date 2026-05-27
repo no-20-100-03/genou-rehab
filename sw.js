@@ -1,20 +1,4 @@
-const CACHE_NAME = 'genou-rehab-v9';
-
-self.addEventListener('install', event => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(FILES_TO_CACHE))
-  );
-  self.skipWaiting(); // ← Force l'activation immédiate
-});
-
-self.addEventListener('activate', event => {
-  event.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
-    )
-  );
-  self.clients.claim(); // ← Prend le contrôle immédiatement
-});
+const CACHE_NAME = 'genou-rehab-v10';
 
 const FILES_TO_CACHE = [
   '/genou-rehab/',
@@ -58,31 +42,28 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   event.respondWith(
     caches.match(event.request).then(cached => {
-      return cached || fetch(event.request).catch(() => caches.match('/index.html'));
+      return cached || fetch(event.request).catch(() => caches.match('/genou-rehab/index.html'));
     })
   );
 });
 
-// ← RÉCEPTION DES NOTIFICATIONS DEPUIS L'APP
+// Notifications médicaments depuis l'app
 self.addEventListener('message', event => {
-  if (event.data && event.data.type === 'SCHEDULE_NOTIF') {
+  if (!event.data) return;
+  if (event.data.type === 'SCHEDULE_NOTIF') {
     const { delay, title, body } = event.data;
     setTimeout(() => {
       self.registration.showNotification(title, {
         body: body,
-        icon: '/images/icon-192.png',
-        badge: '/images/icon-192.png',
+        icon: '/genou-rehab/images/icon-192.png',
+        badge: '/genou-rehab/images/icon-192.png',
         vibrate: [200, 100, 200],
         tag: 'med-reminder',
         requireInteraction: true
       });
     }, delay);
   }
-});
-
-// Force la mise à jour immédiate chez tous les clients
-self.addEventListener('message', event => {
-  if (event.data && event.data.type === 'SKIP_WAITING') {
+  if (event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
   }
 });
