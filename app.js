@@ -1,7 +1,7 @@
 // ============================================================
 // VERSION
 // ============================================================
-const APP_VERSION = '1.5.15';
+const APP_VERSION = '1.6.0';
 
 // ============================================================
 // DONNÉES DES EXERCICES (tirées du PDF Kinatex)
@@ -92,6 +92,10 @@ const EXERCISES = [
 // ============================================================
 let currentExercise = null;
 let currentGraphTab = 'semaine';
+let currentMedConfirm = null;
+let currentMedTab = 'actif';
+let currentMedType = 'fixe';
+let currentBesoinMed = null;
 
 // ============================================================
 // STOCKAGE LOCAL
@@ -137,11 +141,13 @@ function init() {
   renderStats();
   renderMedList();
   renderProgrammeActifLabel();
-  requestNotifPermission();    
-  scheduleMedNotifications();   
+  requestNotifPermission();
+  scheduleMedNotifications();
   const versionEl = document.getElementById('app-version');
-if (versionEl) versionEl.textContent = APP_VERSION;
+  if (versionEl) versionEl.textContent = APP_VERSION;
+  updateRappelsStatusLabel();
 }
+
 function askOpDateIfNeeded() {
   const opDate = getData('op-date', null);
   if (!opDate) {
@@ -153,13 +159,10 @@ function askOpDateIfNeeded() {
 }
 
 function checkMidnightReset() {
-  // Vérifie si on est un nouveau jour — remet les exercices de la session en cours à zéro
   const lastSeen = getData('last-seen-date', null);
   const today = getTodayKey();
   if (lastSeen !== today) {
     setData('last-seen-date', today);
-    // Les données du jour précédent restent dans progress[] pour les graphiques
-    // On ne touche pas à l'historique, on crée juste un nouveau jour
   }
 }
 
@@ -181,7 +184,6 @@ function setDaysSinceOp() {
 // ============================================================
 // RENDU DES EXERCICES
 // ============================================================
-
 function renderExerciseLists() {
   const prog = getTodayProgress();
   const programmeActif = getProgrammeActif();
@@ -211,11 +213,12 @@ function renderExerciseLists() {
 
 function checkSessionComplete() {
   const prog = getTodayProgress();
-  const totalEx = EXERCISES.length;
+  const programmeActif = getProgrammeActif();
+  const totalEx = programmeActif.exercices.length;
   const doneEx = Object.keys(prog.exercises).length;
   const existing = document.getElementById('session-complete-banner');
 
-  if (doneEx === totalEx && prog.sessions < 4) {
+  if (doneEx >= totalEx && totalEx > 0 && prog.sessions < 4) {
     if (!existing) {
       const banner = document.createElement('div');
       banner.id = 'session-complete-banner';
@@ -256,6 +259,11 @@ function openExercise(ex) {
   document.getElementById('reps-select').value = '';
   document.getElementById('set-status').textContent = '';
 
+  // Pré-remplir note existante
+  const notes = getData('exercise-notes', {});
+  const noteKey = getTodayKey() + '_' + ex.id;
+  document.getElementById('exercise-note').value = notes[noteKey] || '';
+
   const prog = getTodayProgress();
   const reps = prog.exercises[ex.id];
   if (reps !== undefined) {
@@ -264,6 +272,67 @@ function openExercise(ex) {
   }
 
   showScreen('exercise');
+}
+
+// ============================================================
+// NOTES PAR EXERCICE
+// ============================================================
+function saveExerciseNote() {
+  if (!currentExercise) return;
+  const note = document.getElementById('exercise-note').value.trim();
+  const noteKey = getTodayKey() + '_' + currentExercise.id;
+  const notes = getData('exercise-notes', {});
+  if (note) {
+    notes[noteKey] = note;
+  } else {
+    delete notes[noteKey];
+  }
+  setData('exercise-notes', notes);
+}
+
+// Sauvegarde auto de la note quand on tape
+document.addEventListener('DOMContentLoaded', () => {
+  const noteField = document.getElementById('exercise-note');
+  if (noteField) {
+    noteField.addEventListener('input', saveExerciseNote);
+  }
+});
+
+function renderSessionNotes() {
+  const container = document.getElementById('session-notes-list');
+  if (!container) return;
+  const notes = getData('exercise-notes', {});
+  const entries = Object.entries(notes)
+    .map(([k, v]) => {
+      const [date, exId] = k.split('_');
+      const ex = EXERCISES.find(e => e.id === exId);
+      return { date, exId, exNom: ex ? ex.emoji + ' ' + ex.nom : exId, note: v };
+    })
+    .filter(e => e.note)
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(0, 10);
+
+  if (entries.length === 0) {
+    container.innerHTML = '<div class="notes-empty">Aucune note. Ajoutez une note lors d\'un exercice.</div>';
+    return;
+  }
+
+  const mois = ['jan','fév','mar','avr','mai','jun','jul','aoû','sep','oct','nov','déc'];
+  container.innerHTML = entries.map(e => {
+    const d = new Date(e.date + 'T12:00:00');
+    const dateFmt = d.getDate() + ' ' + mois[d.getMonth()];
+    return `<div class="session-note-card">
+      <div class="note-card-header">
+        <span class="note-card-ex">${e.exNom}</span>
+        <span class="note-card-date">${dateFmt}</span>
+      </div>
+      <div class="note-card-text">${escapeHtml(e.note)}</div>
+    </div>`;
+  }).join('');
+}
+
+function escapeHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 // ============================================================
@@ -276,6 +345,9 @@ function confirmSet() {
   const prog = getTodayProgress();
   prog.exercises[currentExercise.id] = parseInt(val);
   saveTodayProgress(prog);
+
+  // Sauvegarde aussi la note si présente
+  saveExerciseNote();
 
   const msg = parseInt(val) === 10
     ? '✓ Parfait ! 10 répétitions enregistrées.'
@@ -299,9 +371,6 @@ function completeSession() {
   if (prog.sessions >= 4) return;
 
   prog.sessions++;
-
-  // Remet les exercices à zéro pour la prochaine session
-  // mais garde l'historique dans sessionExercises
   if (!prog.sessionExercises) prog.sessionExercises = [];
   prog.sessionExercises.push({ ...prog.exercises, completedAt: new Date().toISOString() });
   prog.exercises = {};
@@ -326,7 +395,7 @@ function showSessionSummary(sessionNum) {
       <div class="summary-title">Session ${sessionNum} complétée!</div>
       <div class="summary-sub">${sessionNum < 4 ? 'Encore ' + (4 - sessionNum) + ' session(s) aujourd\'hui.' : 'Objectif du jour atteint! Excellent travail!'}</div>
       <div class="summary-stats">
-        <div class="summary-stat"><span class="summary-stat-num">${EXERCISES.length}</span><span class="summary-stat-lbl">Exercices</span></div>
+        <div class="summary-stat"><span class="summary-stat-num">${getProgrammeActif().exercices.length}</span><span class="summary-stat-lbl">Exercices</span></div>
         <div class="summary-stat"><span class="summary-stat-num">${sessionNum}/4</span><span class="summary-stat-lbl">Sessions</span></div>
       </div>
       <button class="summary-close-btn" onclick="closeSummary()">Continuer</button>
@@ -363,36 +432,46 @@ function updateSessionDots() {
 // NAVIGATION
 // ============================================================
 function showScreen(name) {
+  // Désactive tous les écrans
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  document.getElementById('screen-' + name).classList.add('active');
+  const target = document.getElementById('screen-' + name);
+  if (!target) return;
+  target.classList.add('active');
+
+  // Mise à jour boutons nav
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   const navMap = {
-  home: 'nav-home',
-  suivi: 'nav-suivi',
-  med: 'nav-med',
-  'med-form': 'nav-med',
-  'med-confirm': 'nav-med', 
-  'med-besoin': 'nav-med',
-  'programme': 'nav-reglages',
-  reglages: 'nav-reglages'  
-};
-  if (navMap[name]) document.getElementById(navMap[name]).classList.add('active');
-  if (name === 'home') { renderExerciseLists(); updateSessionDots(); updateSessionCount(); }
-  if (name === 'suivi') { renderGraphTab(currentGraphTab); renderStats(); }
-  if (name === 'med') renderMedList();
-  if (name === 'med-form') showNotifInfoBox();
-  if (name === 'reglages') renderReglages();  
-  if (name === 'med') { renderMedList(); }
-  if (name === 'med-confirm') { /* déjà géré dans openConfirmDose */ }
-  if (name === 'programme') renderProgrammeScreen();
-  window.scrollTo(0, 0);
-  document.body.scrollTop = 0;
-  document.documentElement.scrollTop = 0;
-  const activeContent = document.querySelector('.screen.active .screen-content');
-  if (activeContent) {
-    activeContent.scrollTop = 0;
-    activeContent.scrollIntoView({ behavior: 'instant', block: 'start' });
+    home: 'nav-home',
+    suivi: 'nav-suivi',
+    med: 'nav-med',
+    'med-form': 'nav-med',
+    'med-confirm': 'nav-med',
+    'med-besoin': 'nav-med',
+    programme: 'nav-reglages',
+    rappels: 'nav-reglages',
+    reglages: 'nav-reglages'
+  };
+  if (navMap[name]) {
+    const navEl = document.getElementById(navMap[name]);
+    if (navEl) navEl.classList.add('active');
   }
+
+  // ── CORRECTION BUG SCROLL ──────────────────────────────
+  // On scrolle LE CONTENEUR de l'écran actif, pas window
+  const sc = target.querySelector('.screen-content');
+  if (sc) {
+    sc.scrollTop = 0;
+  }
+  // ──────────────────────────────────────────────────────
+
+  // Actions spécifiques à chaque écran
+  if (name === 'home')     { renderExerciseLists(); updateSessionDots(); updateSessionCount(); }
+  if (name === 'suivi')    { renderGraphTab(currentGraphTab); renderStats(); renderSessionNotes(); }
+  if (name === 'med')      { renderMedList(); }
+  if (name === 'med-form') { showNotifInfoBox(); }
+  if (name === 'reglages') { renderReglages(); }
+  if (name === 'programme'){ renderProgrammeScreen(); }
+  if (name === 'rappels')  { renderRappels(); }
 }
 
 // ============================================================
@@ -496,15 +575,10 @@ function renderStats() {
     <div class="stat-card"><div class="stat-num">J+${jPlus}</div><div class="stat-lbl">Depuis l'opération</div></div>
   `;
 }
+
 // ============================================================
 // MÉDICATION
 // ============================================================
-let currentMedConfirm = null;
-let currentMedTab = 'actif';
-
-let currentMedType = 'fixe';
-let currentBesoinMed = null;
-
 function renderMedArchive() {
   const container = document.getElementById('med-archive-list');
   if (!container) return;
@@ -520,7 +594,6 @@ function renderMedArchive() {
   const mois = ['jan','fév','mar','avr','mai','jun','jul','aoû','sep','oct','nov','déc'];
 
   container.innerHTML = archived.map(m => {
-    // Calcule les stats globales
     let totalPrises = 0;
     let totalAttendues = 0;
     Object.entries(doses).forEach(([day, dayData]) => {
@@ -539,10 +612,7 @@ function renderMedArchive() {
       }
     });
 
-    const taux = totalAttendues > 0
-      ? Math.round((totalPrises / totalAttendues) * 100)
-      : null;
-
+    const taux = totalAttendues > 0 ? Math.round((totalPrises / totalAttendues) * 100) : null;
     const endDateTxt = m.endDate
       ? (() => { const d = new Date(m.endDate + 'T12:00:00'); return d.getDate() + ' ' + mois[d.getMonth()] + ' ' + d.getFullYear(); })()
       : 'Non définie';
@@ -596,7 +666,8 @@ function selectMedType(type) {
   document.getElementById('type-btn-besoin').classList.toggle('active', type === 'besoin');
   document.getElementById('form-fixe-fields').style.display = type === 'fixe' ? 'block' : 'none';
   document.getElementById('form-besoin-fields').style.display = type === 'besoin' ? 'block' : 'none';
-  document.getElementById('med-notif').closest('.form-group').style.display = type === 'fixe' ? 'block' : 'none';
+  const notifGroup = document.getElementById('notif-field-group');
+  if (notifGroup) notifGroup.style.display = type === 'fixe' ? 'block' : 'none';
 }
 
 function switchMedTab(tab) {
@@ -653,7 +724,6 @@ function saveMed() {
   meds.push(med);
   setData('meds', meds);
 
-  // Reset formulaire
   document.getElementById('med-name').value = '';
   document.getElementById('med-note').value = '';
   document.getElementById('med-end-date').value = '';
@@ -673,7 +743,6 @@ function renderMedList() {
   const today = getTodayKey();
   const meds = getData('meds', []);
 
-  // Archivage automatique si date de fin dépassée
   let updated = false;
   meds.forEach(m => {
     if (m.endDate && m.endDate < today && !m.archived) {
@@ -685,9 +754,7 @@ function renderMedList() {
 
   const actifs = meds.filter(m => !m.archived && m.type !== 'besoin');
   const besoin = meds.filter(m => !m.archived && m.type === 'besoin');
-  console.log('Actifs:', actifs.length, 'Besoin:', besoin.length);
 
-  // Médicaments horaire fixe
   const container = document.getElementById('med-list');
   if (container) {
     if (actifs.length === 0) {
@@ -715,7 +782,6 @@ function renderMedList() {
     }
   }
 
-  // Médicaments au besoin
   const besoinContainer = document.getElementById('med-besoin-list');
   if (besoinContainer) {
     if (besoin.length === 0) {
@@ -737,14 +803,12 @@ function buildBesoinCard(m) {
   const count = prises.length;
   const maxDoses = m.maxDoses || 4;
 
-  // Dernière prise
   let lastPrise = null;
   if (count > 0) {
     const sorted = prises.sort((a, b) => a.takenAt.localeCompare(b.takenAt));
     lastPrise = sorted[sorted.length - 1];
   }
 
-  // Temps depuis dernière prise
   let statusHtml = '';
   let canTake = true;
   if (lastPrise) {
@@ -804,7 +868,6 @@ function openBesoinDose(medId) {
   const maxDoses = med.maxDoses || 4;
 
   currentBesoinMed = med;
-
   document.getElementById('besoin-med-name').textContent = med.name;
   document.getElementById('besoin-med-dose').textContent =
     'Intervalle minimum : ' + med.interval + 'h · Maximum : ' + maxDoses + ' prises/jour';
@@ -814,7 +877,6 @@ function openBesoinDose(medId) {
     now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
   document.getElementById('besoin-med-note').value = '';
 
-  // Vérification intervalle
   let statusHtml = '';
   if (count >= maxDoses) {
     statusHtml = `<div class="besoin-warning">⚠️ Maximum de ${maxDoses} prises atteint pour aujourd'hui.</div>`;
@@ -853,7 +915,6 @@ function saveBesoinDose() {
   const medKey = String(currentBesoinMed.id);
   if (!doses[today][medKey]) doses[today][medKey] = {};
 
-  // Clé unique par prise (timestamp)
   const doseKey = 'besoin_' + Date.now();
   doses[today][medKey][doseKey] = {
     takenAt: takenAt,
@@ -896,13 +957,8 @@ function buildMedSlots(med) {
     const slotKey = slot.getHours().toString().padStart(2,'0') + ':' + slot.getMinutes().toString().padStart(2,'0');
     const doseRecord = medDoses[slotKey];
     const isPast = slot < now;
-    const isNext = !doseRecord && isPast === false && slots.slice(0, i).every((s, j) => {
-      const k = s.getHours().toString().padStart(2,'0') + ':' + s.getMinutes().toString().padStart(2,'0');
-      return medDoses[k];
-    });
 
     if (doseRecord) {
-      // Prise confirmée
       const ecartMin = Math.round((new Date('1970-01-01T' + doseRecord.takenAt + ':00') - new Date('1970-01-01T' + slotKey + ':00')) / 60000);
       const ecartTxt = ecartMin === 0 ? 'À l\'heure' : ecartMin > 0 ? '+' + ecartMin + ' min' : ecartMin + ' min';
       const ecartCls = Math.abs(ecartMin) <= 15 ? 'ecart-ok' : Math.abs(ecartMin) <= 30 ? 'ecart-warn' : 'ecart-late';
@@ -917,7 +973,6 @@ function buildMedSlots(med) {
         </div>
       </div>`;
     } else if (isPast) {
-      // Manquée ou en retard
       return `<div class="med-slot missed">
         <div class="slot-time-col">
           <span class="slot-time">${slotKey}</span>
@@ -928,7 +983,6 @@ function buildMedSlots(med) {
         </button>
       </div>`;
     } else {
-      // À venir
       const diffMin = Math.round((slot - now) / 60000);
       const diffTxt = diffMin < 60 ? 'Dans ' + diffMin + ' min' : 'Dans ' + Math.round(diffMin/60) + 'h';
       return `<div class="med-slot upcoming">
@@ -950,31 +1004,30 @@ function openConfirmDose(medId, scheduledTime, medName, dose) {
   document.getElementById('confirm-med-dose').textContent = 'Dose prévue à ' + scheduledTime + ' · toutes les ' + dose;
   document.getElementById('confirm-scheduled-time').textContent = scheduledTime;
 
-  // Pré-remplir avec l'heure actuelle
   const now = new Date();
   const nowStr = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
   document.getElementById('confirm-med-time').value = nowStr;
   document.getElementById('confirm-med-note').value = '';
+  document.getElementById('confirm-ecart').textContent = '';
 
-  updateEcartDisplay();
-  document.getElementById('confirm-med-time').addEventListener('input', updateEcartDisplay);
+  document.getElementById('confirm-med-time').addEventListener('input', updateEcartDisplay, { once: false });
   showScreen('med-confirm');
 }
 
 function updateEcartDisplay() {
-  const scheduled = document.getElementById('confirm-scheduled-time').textContent;
-  const taken = document.getElementById('confirm-med-time').value;
-  if (!taken) return;
+  if (!currentMedConfirm) return;
+  const takenAt = document.getElementById('confirm-med-time').value;
+  const scheduled = currentMedConfirm.scheduledTime;
+  if (!takenAt || !scheduled) return;
+
   const [sh, sm] = scheduled.split(':').map(Number);
-  const [th, tm] = taken.split(':').map(Number);
+  const [th, tm] = takenAt.split(':').map(Number);
   const ecartMin = (th * 60 + tm) - (sh * 60 + sm);
-  const ecartTxt = ecartMin === 0 ? '✅ À l\'heure exacte'
-    : ecartMin > 0 ? '⏰ ' + ecartMin + ' min de retard'
-    : '⏰ ' + Math.abs(ecartMin) + ' min en avance';
-  const ecartCls = Math.abs(ecartMin) <= 15 ? 'ecart-ok' : Math.abs(ecartMin) <= 30 ? 'ecart-warn' : 'ecart-late';
-  const box = document.getElementById('confirm-ecart');
-  box.textContent = ecartTxt;
-  box.className = 'confirm-ecart ' + ecartCls;
+  const ecartTxt = ecartMin === 0 ? '✅ À l\'heure' : ecartMin > 0 ? '⚠️ +' + ecartMin + ' min de retard' : '⏰ ' + Math.abs(ecartMin) + ' min en avance';
+  const cls = Math.abs(ecartMin) <= 15 ? 'ecart-ok' : Math.abs(ecartMin) <= 30 ? 'ecart-warn' : 'ecart-late';
+  const el = document.getElementById('confirm-ecart');
+  el.textContent = ecartTxt;
+  el.className = 'confirm-ecart ' + cls;
 }
 
 function saveConfirmedDose() {
@@ -998,66 +1051,49 @@ function saveConfirmedDose() {
   showScreen('med');
 }
 
-// ============================================================
-// HISTORIQUE MÉDICATION
-// ============================================================
 function renderMedHistory() {
   const container = document.getElementById('med-history-content');
   if (!container) return;
   const meds = getData('meds', []);
   const doses = getData('doses', {});
-
-  if (meds.length === 0) {
-    container.innerHTML = '<div class="empty-state">Aucun médicament enregistré.</div>';
-    return;
-  }
+  const today = new Date();
+  const mois = ['jan','fév','mar','avr','mai','jun','jul','aoû','sep','oct','nov','déc'];
+  const jours = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
 
   const days = [];
   for (let i = 6; i >= 0; i--) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
+    const d = new Date(today);
+    d.setDate(today.getDate() - i);
     days.push(d.toISOString().slice(0, 10));
   }
 
-  const jours = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
-  const mois = ['jan','fév','mar','avr','mai','jun','jul','aoû','sep','oct','nov','déc'];
-
   let html = '';
-
-  meds.forEach(med => {
-    const medIdStr = String(med.id);
-    const medIdNum = Number(med.id);
-
-    html += `<div class="hist-med-title">💊 ${med.name}</div>`;
-    html += `<div class="hist-table-wrap"><table class="hist-table">
-      <thead><tr>
-        <th>Jour</th><th>Prévue</th><th>Réelle</th><th>Écart</th>
-      </tr></thead><tbody>`;
-
+  meds.forEach(m => {
+    const medKey = String(m.id);
     let hasData = false;
+    html += `<div class="hist-med-title">${m.type === 'besoin' ? '⚡' : '💊'} ${m.name}</div>`;
+    html += `<div class="hist-table-wrap"><table class="hist-table">
+      <thead><tr><th>Jour</th><th>Prévue</th><th>Réelle</th><th>Écart</th></tr></thead><tbody>`;
 
     days.forEach(day => {
-      const dayData = doses[day] || {};
-      const dayDoses = dayData[medIdStr] || dayData[medIdNum] || dayData[med.id] || {};
+      const dayDoses = (doses[day] || {})[medKey] || {};
       const d = new Date(day + 'T12:00:00');
       const dayLabel = jours[d.getDay()] + ' ' + d.getDate() + ' ' + mois[d.getMonth()];
       const isToday = day === getTodayKey();
 
-      // Médicaments horaire fixe
-      if (med.type !== 'besoin' && med.time) {
+      if (m.type !== 'besoin' && m.time) {
         const slots = [];
-        let t = new Date(day + 'T' + med.time + ':00');
+        let t = new Date(day + 'T' + m.time + ':00');
         while (slots.length <= 6) {
           if (t.toISOString().slice(0, 10) !== day) break;
           slots.push(t.getHours().toString().padStart(2,'0') + ':' + t.getMinutes().toString().padStart(2,'0'));
-          t = new Date(t.getTime() + med.interval * 3600000);
+          t = new Date(t.getTime() + m.interval * 3600000);
         }
 
         slots.forEach((slot, i) => {
           const record = dayDoses[slot];
           const slotDate = new Date(day + 'T' + slot + ':00');
           const isPast = slotDate < new Date();
-
           let reelle = '—', ecart = '—', rowCls = '';
 
           if (record) {
@@ -1086,7 +1122,6 @@ function renderMedHistory() {
         });
       }
 
-      // Prises au besoin
       const besoinPrises = Object.entries(dayDoses).filter(([k]) => k.startsWith('besoin_'));
       besoinPrises.forEach(([key, record]) => {
         html += `<tr class="row-ok">
@@ -1097,19 +1132,17 @@ function renderMedHistory() {
         </tr>`;
         hasData = true;
       });
-
-    }); // fin days.forEach
+    });
 
     if (!hasData) {
       html += `<tr><td colspan="4" style="text-align:center;color:#9e9e9e;padding:12px;">Aucune donnée pour les 7 derniers jours</td></tr>`;
     }
-
     html += `</tbody></table></div>`;
+  });
 
-  }); // fin meds.forEach
-
-  container.innerHTML = html;
+  container.innerHTML = html || '<div class="empty-state">Aucun médicament enregistré.</div>';
 }
+
 // ============================================================
 // RÉGLAGES
 // ============================================================
@@ -1118,7 +1151,7 @@ function renderReglages() {
   const el = document.getElementById('settings-op-date');
   if (!el) return;
   if (opDate) {
-    const d = new Date(opDate);
+    const d = new Date(opDate + 'T12:00:00');
     const mois = ['janvier','février','mars','avril','mai','juin',
       'juillet','août','septembre','octobre','novembre','décembre'];
     const diff = Math.floor((new Date() - d) / 86400000);
@@ -1126,6 +1159,8 @@ function renderReglages() {
   } else {
     el.textContent = 'Non définie';
   }
+  renderProgrammeActifLabel();
+  updateRappelsStatusLabel();
 }
 
 function changeOpDate() {
@@ -1160,6 +1195,7 @@ function resetAllData() {
   if (!confirm('Êtes-vous certain? Toutes les données seront perdues.')) return;
   localStorage.removeItem('progress');
   localStorage.removeItem('last-seen-date');
+  localStorage.removeItem('exercise-notes');
   updateSessionDots();
   updateSessionCount();
   renderExerciseLists();
@@ -1169,13 +1205,51 @@ function resetAllData() {
 }
 
 // ============================================================
+// EXPORT CSV
+// ============================================================
+function exportCSV() {
+  const progress = getData('progress', {});
+  const opDate = getData('op-date', null);
+  const notes = getData('exercise-notes', {});
+
+  const rows = [['Date','J+','Sessions','Exercices complétés','Notes']];
+
+  Object.entries(progress).sort().forEach(([date, data]) => {
+    const jPlus = opDate ? Math.floor((new Date(date) - new Date(opDate)) / 86400000) : '';
+    const sessions = data.sessions || 0;
+    const exCount = Object.keys(data.exercises || {}).length;
+
+    // Notes du jour
+    const dayNotes = Object.entries(notes)
+      .filter(([k]) => k.startsWith(date + '_'))
+      .map(([k, v]) => {
+        const exId = k.replace(date + '_', '');
+        const ex = EXERCISES.find(e => e.id === exId);
+        return (ex ? ex.nom : exId) + ': ' + v;
+      }).join(' | ');
+
+    rows.push([date, jPlus, sessions, exCount, dayNotes]);
+  });
+
+  const csv = rows.map(r =>
+    r.map(cell => '"' + String(cell).replace(/"/g, '""') + '"').join(',')
+  ).join('\n');
+
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'genou-rehab-' + getTodayKey() + '.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ============================================================
 // PROGRAMME PERSONNALISÉ
 // ============================================================
-
 function getProgrammeActif() {
   const programmes = getData('programmes', []);
   if (programmes.length === 0) {
-    // Programme par défaut — tous les exercices
     return {
       id: 'default',
       numero: 1,
@@ -1192,7 +1266,6 @@ function renderProgrammeScreen() {
   const prog = getProgrammeActif();
   document.getElementById('prog-nom').value = prog.nom || '';
 
-  // Rendu des cases à cocher par catégorie
   ['couche', 'assis', 'debout'].forEach(cat => {
     const container = document.getElementById('prog-list-' + cat);
     if (!container) return;
@@ -1212,12 +1285,10 @@ function renderProgrammeScreen() {
       `).join('');
   });
 
-  // Historique
   renderProgHistorique();
   renderProgrammeActifLabel();
-  document.activeElement?.blur();
-  window.scrollTo(0, 0);
-  }
+  // Note: le scroll est déjà géré dans showScreen() via sc.scrollTop = 0
+}
 
 function selectAllExercises() {
   document.querySelectorAll('.prog-ex-check').forEach(cb => cb.checked = true);
@@ -1235,7 +1306,6 @@ function saveProgramme() {
   const programmes = getData('programmes', []);
   const numero = programmes.length + 1;
 
-  // Ferme le programme précédent
   if (programmes.length > 0) {
     programmes[programmes.length - 1].dateFin = getTodayKey();
   }
@@ -1255,6 +1325,25 @@ function saveProgramme() {
   renderExerciseLists();
   alert('✅ Programme ' + nouveau.nom + ' activé!');
   showScreen('reglages');
+}
+
+function updateProgrammeActif() {
+  const nom = document.getElementById('prog-nom').value.trim();
+  const checked = [...document.querySelectorAll('.prog-ex-check:checked')].map(cb => cb.value);
+  if (checked.length === 0) { alert('Veuillez sélectionner au moins un exercice.'); return; }
+
+  const programmes = getData('programmes', []);
+  if (programmes.length === 0) {
+    saveProgramme();
+    return;
+  }
+  const actuel = programmes[programmes.length - 1];
+  actuel.exercices = checked;
+  if (nom) actuel.nom = nom;
+  setData('programmes', programmes);
+  renderProgrammeActifLabel();
+  renderExerciseLists();
+  alert('✅ Programme mis à jour!');
 }
 
 function renderProgrammeActifLabel() {
@@ -1297,7 +1386,7 @@ function renderProgHistorique() {
             ${isActif ? '<span class="prog-actif-badge">Actif</span>' : ''}
           </div>
           <div class="prog-hist-dates">
-            ${formatDateProg(p.dateDebut)} → ${formatDateProg(p.dateFin)}
+            ${formatDateProg(p.dateDebut)} → ${p.dateFin ? formatDateProg(p.dateFin) : 'Actif'}
           </div>
         </div>
         ${!isActif ? `<button class="settings-btn" onclick="reactiverProgramme(${p.id})">Réactiver</button>` : ''}
@@ -1315,11 +1404,9 @@ function reactiverProgramme(id) {
   const prog = programmes.find(p => p.id === id);
   if (!prog) return;
 
-  // Ferme le programme actuel
   const actuel = programmes.find(p => p.dateFin === null);
   if (actuel) actuel.dateFin = getTodayKey();
 
-  // Crée une nouvelle entrée basée sur l'ancien
   const numero = programmes.length + 1;
   const nouveau = {
     id: Date.now(),
@@ -1339,6 +1426,151 @@ function reactiverProgramme(id) {
 }
 
 // ============================================================
+// RAPPELS D'EXERCICES
+// ============================================================
+function updateRappelsStatusLabel() {
+  const el = document.getElementById('rappels-status-label');
+  if (!el) return;
+  const rappels = getData('rappels-exercices', []);
+  const actifs = rappels.filter(r => r.enabled);
+  if (actifs.length === 0) {
+    el.textContent = 'Aucun rappel configuré';
+  } else {
+    el.textContent = actifs.length + ' rappel(s) actif(s)';
+  }
+}
+
+function renderRappels() {
+  const rappels = getData('rappels-exercices', []);
+  const container = document.getElementById('rappels-list');
+  if (!container) return;
+
+  // Statut notifications
+  const statusBox = document.getElementById('rappels-notif-status');
+  if (statusBox) {
+    if (!('Notification' in window)) {
+      statusBox.innerHTML = '<div class="notif-warn" style="margin:12px 16px 0;">⚠️ Notifications non supportées sur ce navigateur.</div>';
+    } else if (Notification.permission === 'denied') {
+      statusBox.innerHTML = '<div class="notif-warn" style="margin:12px 16px 0;">⚠️ Notifications bloquées. Activez-les dans les réglages Chrome.</div>';
+    } else if (Notification.permission === 'granted') {
+      statusBox.innerHTML = '<div class="notif-ok" style="margin:12px 16px 0;">✅ Notifications activées.</div>';
+    } else {
+      statusBox.innerHTML = '<div class="notif-ok" style="margin:12px 16px 0;">🔔 Notifications pas encore autorisées — un rappel déclenchera la demande.</div>';
+    }
+  }
+
+  const daysLabels = { all: 'Tous les jours', week: 'Lun–Ven', weekend: 'Sam–Dim' };
+
+  if (rappels.length === 0) {
+    container.innerHTML = '<div class="rappels-empty">Aucun rappel. Ajoutez-en un ci-dessous.</div>';
+  } else {
+    container.innerHTML = rappels.map((r, i) => `
+      <div class="rappel-card ${r.enabled ? '' : 'inactive'}">
+        <div class="rappel-info">
+          <div class="rappel-time-txt">${r.time}</div>
+          <div class="rappel-days-txt">${daysLabels[r.days] || r.days}</div>
+          ${r.label ? `<div class="rappel-label-txt">${escapeHtml(r.label)}</div>` : ''}
+        </div>
+        <div class="rappel-actions">
+          <button class="rappel-toggle-btn ${r.enabled ? '' : 'off'}"
+            onclick="toggleRappel(${i})">${r.enabled ? '✓ Actif' : 'Inactif'}</button>
+          <button class="rappel-delete-btn" onclick="deleteRappel(${i})">🗑️</button>
+        </div>
+      </div>
+    `).join('');
+  }
+}
+
+function addRappel() {
+  const time = document.getElementById('rappel-time').value;
+  const days = document.getElementById('rappel-days').value;
+  const label = document.getElementById('rappel-label').value.trim();
+
+  if (!time) { alert('Veuillez choisir une heure.'); return; }
+
+  // Demande permission si pas encore accordée
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+
+  const rappels = getData('rappels-exercices', []);
+  rappels.push({ time, days, label, enabled: true, id: Date.now() });
+  setData('rappels-exercices', rappels);
+
+  document.getElementById('rappel-time').value = '09:00';
+  document.getElementById('rappel-label').value = '';
+  renderRappels();
+  updateRappelsStatusLabel();
+  scheduleRappelNotifications();
+}
+
+function toggleRappel(index) {
+  const rappels = getData('rappels-exercices', []);
+  if (rappels[index]) rappels[index].enabled = !rappels[index].enabled;
+  setData('rappels-exercices', rappels);
+  renderRappels();
+  updateRappelsStatusLabel();
+  scheduleRappelNotifications();
+}
+
+function deleteRappel(index) {
+  if (!confirm('Supprimer ce rappel?')) return;
+  const rappels = getData('rappels-exercices', []);
+  rappels.splice(index, 1);
+  setData('rappels-exercices', rappels);
+  renderRappels();
+  updateRappelsStatusLabel();
+}
+
+// Vérification toutes les minutes pour les rappels d'exercices
+function scheduleRappelNotifications() {
+  // Déjà lancé via startNotifWatcher
+}
+
+function checkRappelNotifs() {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+
+  const rappels = getData('rappels-exercices', []);
+  if (rappels.length === 0) return;
+
+  const now = new Date();
+  const nowH = now.getHours();
+  const nowM = now.getMinutes();
+  const nowMin = nowH * 60 + nowM;
+  const dayOfWeek = now.getDay(); // 0=dim, 1=lun...6=sam
+  const today = getTodayKey();
+  const fired = getData('rappels-fired', {});
+  const todayFired = fired[today] || {};
+
+  rappels.forEach(r => {
+    if (!r.enabled) return;
+
+    // Vérifier le jour
+    const isWeekDay = dayOfWeek >= 1 && dayOfWeek <= 5;
+    const isWeekEnd = dayOfWeek === 0 || dayOfWeek === 6;
+    if (r.days === 'week' && !isWeekDay) return;
+    if (r.days === 'weekend' && !isWeekEnd) return;
+
+    const [rH, rM] = r.time.split(':').map(Number);
+    const rMin = rH * 60 + rM;
+
+    const fireKey = 'rappel_' + r.id + '_' + r.time;
+    if (!todayFired[fireKey] && nowMin >= rMin && nowMin <= rMin + 2) {
+      const label = r.label || 'C\'est l\'heure de vos exercices!';
+      new Notification('🦵 Réadaptation genou', {
+        body: label,
+        icon: 'images/icon-192.png',
+        tag: fireKey,
+        requireInteraction: false
+      });
+      todayFired[fireKey] = new Date().toISOString();
+      fired[today] = todayFired;
+      setData('rappels-fired', fired);
+    }
+  });
+}
+
+// ============================================================
 // DÉMARRAGE
 // ============================================================
 window.addEventListener('DOMContentLoaded', () => {
@@ -1346,7 +1578,6 @@ window.addEventListener('DOMContentLoaded', () => {
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/genou-rehab/sw.js').then(reg => {
       console.log('Service Worker enregistré');
-      // Vérifie les mises à jour à chaque chargement
       reg.update();
       if (reg.waiting) {
         reg.waiting.postMessage({ type: 'SKIP_WAITING' });
@@ -1370,9 +1601,7 @@ function requestNotifPermission() {
   if (!('Notification' in window)) return;
   if (Notification.permission === 'default') {
     Notification.requestPermission().then(permission => {
-      if (permission === 'granted') {
-        startNotifWatcher();
-      }
+      if (permission === 'granted') startNotifWatcher();
     });
   } else if (Notification.permission === 'granted') {
     startNotifWatcher();
@@ -1380,18 +1609,17 @@ function requestNotifPermission() {
 }
 
 function scheduleMedNotifications() {
-  // Remplacé par startNotifWatcher()
+  // Géré par startNotifWatcher()
 }
 
-// Vérifie toutes les minutes si une notification est due
 function startNotifWatcher() {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
-
-  // Vérification immédiate au démarrage
   checkMedNotifs();
-
-  // Puis toutes les 60 secondes
-  setInterval(checkMedNotifs, 60000);
+  checkRappelNotifs();
+  setInterval(() => {
+    checkMedNotifs();
+    checkRappelNotifs();
+  }, 60000);
 }
 
 function checkMedNotifs() {
@@ -1405,7 +1633,6 @@ function checkMedNotifs() {
   const todayFired = fired[today] || {};
 
   meds.forEach(m => {
-  // Ignore les médicaments au besoin (pas d'horaire fixe)
     if (m.type === 'besoin' || !m.time) return;
     const [h, min] = m.time.split(':').map(Number);
     const start = new Date();
@@ -1417,26 +1644,20 @@ function checkMedNotifs() {
       const notifMin = t.getHours() * 60 + t.getMinutes() - m.notif;
       const fireKey = m.id + '_' + slotKey;
 
-      // Déjà envoyée aujourd'hui?
       if (!todayFired[fireKey]) {
-        // Est-ce l'heure d'envoyer?
         if (nowMin >= notifMin && nowMin <= notifMin + 2) {
-          // Pas encore prise?
           const medDoses = todayDoses[m.id] || {};
           if (!medDoses[slotKey]) {
-            // Envoie la notification
             new Notification('💊 ' + m.name, {
               body: m.notif === 0
                 ? 'Heure de prendre votre médicament.'
                 : 'Dans ' + m.notif + ' min : heure de prendre votre médicament.',
-              icon: '/images/icon-192.png',
-              badge: '/images/icon-192.png',
+              icon: 'images/icon-192.png',
+              badge: 'images/icon-192.png',
               vibrate: [200, 100, 200],
               requireInteraction: true,
               tag: fireKey
             });
-
-            // Marque comme envoyée
             todayFired[fireKey] = new Date().toISOString();
             fired[today] = todayFired;
             setData('notifs-fired', fired);
@@ -1447,11 +1668,4 @@ function checkMedNotifs() {
       if (t.getDate() !== start.getDate()) break;
     }
   });
-}
-
-function deleteMed(id) {
-  if (!confirm('Supprimer ce médicament?')) return;
-  const meds = getData('meds', []).filter(m => m.id !== id);
-  setData('meds', meds);
-  renderMedList();
 }
