@@ -423,6 +423,49 @@
     <span class="nav-icon">⚙️</span>
     <span class="nav-label">Réglages</span>
   </button>
+
+  <!-- ÉCRAN : PROGRAMME -->
+  <div class="screen" id="screen-programme">
+    <div class="app-header">
+      <div class="header-back-row">
+        <button class="back-btn" onclick="showScreen('reglages')">← Retour</button>
+        <div class="ex-header-title">Mon programme</div>
+      </div>
+    </div>
+    <div class="screen-content">
+
+      <!-- PROGRAMME ACTIF -->
+      <div class="prog-section-title">Programme actif</div>
+      <div class="form-card">
+        <div class="form-group">
+          <label>Nom du programme</label>
+          <input type="text" id="prog-nom" placeholder="ex. Post-visite 15 mai">
+        </div>
+        <div class="prog-ex-title">Exercices inclus</div>
+
+        <div class="prog-categorie-label">🛏️ Couchés</div>
+        <div id="prog-list-couche" class="prog-ex-list"></div>
+
+        <div class="prog-categorie-label">🪑 Assis</div>
+        <div id="prog-list-assis" class="prog-ex-list"></div>
+
+        <div class="prog-categorie-label">🚶 Debout</div>
+        <div id="prog-list-debout" class="prog-ex-list"></div>
+
+        <div class="form-actions" style="margin-top:16px;">
+          <button class="cancel-btn" onclick="selectAllExercises()">Tout sélectionner</button>
+          <button class="submit-btn" onclick="saveProgramme()">Enregistrer</button>
+        </div>
+      </div>
+
+      <!-- HISTORIQUE DES PROGRAMMES -->
+      <div class="prog-section-title">Historique des programmes</div>
+      <div id="prog-historique-list"></div>
+
+      <div style="height:80px;"></div>
+    </div>
+  </div>
+  
 </nav>
 
   <script src="app.js"></script>
