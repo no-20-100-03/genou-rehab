@@ -1,7 +1,7 @@
 // ============================================================
 // VERSION
 // ============================================================
-const APP_VERSION = '1.5.3';
+const APP_VERSION = '1.5.4';
 
 // ============================================================
 // DONNÉES DES EXERCICES (tirées du PDF Kinatex)
@@ -1010,101 +1010,90 @@ function renderMedHistory() {
   const mois = ['jan','fév','mar','avr','mai','jun','jul','aoû','sep','oct','nov','déc'];
 
   let html = '';
+
   meds.forEach(med => {
-    // Cherche avec toutes les variantes possibles de la clé
     const medIdStr = String(med.id);
     const medIdNum = Number(med.id);
 
     html += `<div class="hist-med-title">💊 ${med.name}</div>`;
     html += `<div class="hist-table-wrap"><table class="hist-table">
-      <thead>
-        <tr>
-          <th>Jour</th>
-          <th>Prévue</th>
-          <th>Réelle</th>
-          <th>Écart</th>
-        </tr>
-      </thead>
-      <tbody>`;
+      <thead><tr>
+        <th>Jour</th><th>Prévue</th><th>Réelle</th><th>Écart</th>
+      </tr></thead><tbody>`;
 
     let hasData = false;
 
     days.forEach(day => {
       const dayData = doses[day] || {};
       const dayDoses = dayData[medIdStr] || dayData[medIdNum] || dayData[med.id] || {};
-
       const d = new Date(day + 'T12:00:00');
       const dayLabel = jours[d.getDay()] + ' ' + d.getDate() + ' ' + mois[d.getMonth()];
-      if (med.type === 'besoin' || !med.time) return;
-      const [h, min] = med.time.split(':').map(Number);
-      const slots = [];
-      let t = new Date(day + 'T' + med.time + ':00');
-      while (slots.length <= 6) {
-        const slotDay = t.toISOString().slice(0, 10);
-        if (slotDay !== day) break;
-        slots.push(t.getHours().toString().padStart(2,'0') + ':' + t.getMinutes().toString().padStart(2,'0'));
-        t = new Date(t.getTime() + med.interval * 3600000);
-      }
+      const isToday = day === getTodayKey();
 
-      slots.forEach((slot, i) => {
-        const record = dayDoses[slot];
-        const slotDate = new Date(day + 'T' + slot + ':00');
-        const isPast = slotDate < new Date();
-        const isToday = day === getTodayKey();
-
-        let reelle = '—';
-        let ecart = '—';
-        let rowCls = '';
-
-        if (record) {
-          reelle = record.takenAt;
-          const [sh, sm] = slot.split(':').map(Number);
-          const [th, tm] = record.takenAt.split(':').map(Number);
-          const ecartMin = (th * 60 + tm) - (sh * 60 + sm);
-          ecart = ecartMin === 0 ? 'À l\'heure'
-            : ecartMin > 0 ? '+' + ecartMin + ' min'
-            : ecartMin + ' min';
-          rowCls = Math.abs(ecartMin) <= 15 ? 'row-ok'
-            : Math.abs(ecartMin) <= 30 ? 'row-warn' : 'row-late';
-          hasData = true;
-        } else if (isPast) {
-          reelle = '✗ Manquée';
-          rowCls = 'row-missed';
-          if (!isToday) hasData = true;
-        } else {
-          reelle = '⏳ À venir';
-          rowCls = 'row-upcoming';
+      // Médicaments horaire fixe
+      if (med.type !== 'besoin' && med.time) {
+        const slots = [];
+        let t = new Date(day + 'T' + med.time + ':00');
+        while (slots.length <= 6) {
+          if (t.toISOString().slice(0, 10) !== day) break;
+          slots.push(t.getHours().toString().padStart(2,'0') + ':' + t.getMinutes().toString().padStart(2,'0'));
+          t = new Date(t.getTime() + med.interval * 3600000);
         }
 
-        html += `<tr class="${rowCls}">
-          <td>${i === 0 ? dayLabel : ''}</td>
-          <td>${slot}</td>
-          <td>${reelle}</td>
-          <td>${ecart}</td>
-        </tr>`;
-      });
+        slots.forEach((slot, i) => {
+          const record = dayDoses[slot];
+          const slotDate = new Date(day + 'T' + slot + ':00');
+          const isPast = slotDate < new Date();
+
+          let reelle = '—', ecart = '—', rowCls = '';
+
+          if (record) {
+            reelle = record.takenAt;
+            const [sh, sm] = slot.split(':').map(Number);
+            const [th, tm] = record.takenAt.split(':').map(Number);
+            const ecartMin = (th * 60 + tm) - (sh * 60 + sm);
+            ecart = ecartMin === 0 ? 'À l\'heure' : ecartMin > 0 ? '+' + ecartMin + ' min' : ecartMin + ' min';
+            rowCls = Math.abs(ecartMin) <= 15 ? 'row-ok' : Math.abs(ecartMin) <= 30 ? 'row-warn' : 'row-late';
+            hasData = true;
+          } else if (isPast) {
+            reelle = '✗ Manquée';
+            rowCls = 'row-missed';
+            if (!isToday) hasData = true;
+          } else {
+            reelle = '⏳ À venir';
+            rowCls = 'row-upcoming';
+          }
+
+          html += `<tr class="${rowCls}">
+            <td>${i === 0 ? dayLabel : ''}</td>
+            <td>${slot}</td>
+            <td>${reelle}</td>
+            <td>${ecart}</td>
+          </tr>`;
+        });
+      }
 
       // Prises au besoin
-      const allDayDoses = (doses[day] || {})[medIdStr] || (doses[day] || {})[medIdNum] || (doses[day] || {})[med.id] || {};
-      const besoinPrises = Object.entries(allDayDoses).filter(([k]) => k.startsWith('besoin_'));
+      const besoinPrises = Object.entries(dayDoses).filter(([k]) => k.startsWith('besoin_'));
       besoinPrises.forEach(([key, record]) => {
         html += `<tr class="row-ok">
-          <td>${hasData ? '' : dayLabel}</td>
+          <td>${dayLabel}</td>
           <td>⚡ Au besoin</td>
           <td>${record.takenAt}</td>
           <td>${record.note || '—'}</td>
         </tr>`;
         hasData = true;
-    });
+      });
 
-    });
-    
+    }); // fin days.forEach
+
     if (!hasData) {
       html += `<tr><td colspan="4" style="text-align:center;color:#9e9e9e;padding:12px;">Aucune donnée pour les 7 derniers jours</td></tr>`;
     }
 
     html += `</tbody></table></div>`;
-  });
+
+  }); // fin meds.forEach
 
   container.innerHTML = html;
 }
