@@ -1,7 +1,7 @@
 // ============================================================
 // VERSION
 // ============================================================
-const APP_VERSION = '1.5.11';
+const APP_VERSION = '1.5.12';
 
 // ============================================================
 // DONNÉES DES EXERCICES (tirées du PDF Kinatex)
@@ -1216,7 +1216,9 @@ function renderProgrammeScreen() {
   renderProgHistorique();
   renderProgrammeActifLabel();
   document.activeElement?.blur();
-  document.getElementById('prog-top')?.scrollIntoView({ behavior: 'instant' });
+  const screen = document.getElementById('screen-programme');
+  if (screen) screen.scrollTop = 0;
+  window.scrollTo({ top: 0, behavior: 'instant' });
   }
 
 function selectAllExercises() {
