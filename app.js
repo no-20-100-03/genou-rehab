@@ -1218,8 +1218,6 @@ function renderProgrammeScreen() {
   document.activeElement?.blur();
   document.getElementById('prog-top')?.scrollIntoView({ behavior: 'instant' });
   }
-  
-}
 
 function selectAllExercises() {
   document.querySelectorAll('.prog-ex-check').forEach(cb => cb.checked = true);
