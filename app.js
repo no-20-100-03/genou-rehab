@@ -1340,7 +1340,7 @@ function reactiverProgramme(id) {
 window.addEventListener('DOMContentLoaded', () => {
   init();
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js').then(reg => {
+    navigator.serviceWorker.register('/genou-rehab/sw.js').then(reg => {
       console.log('Service Worker enregistré');
       // Vérifie les mises à jour à chaque chargement
       reg.update();
