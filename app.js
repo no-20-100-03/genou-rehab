@@ -1035,7 +1035,7 @@ function renderMedHistory() {
 
       const d = new Date(day + 'T12:00:00');
       const dayLabel = jours[d.getDay()] + ' ' + d.getDate() + ' ' + mois[d.getMonth()];
-      if (med.type === 'besoin' || !med.time) continue;
+      if (med.type === 'besoin' || !med.time) return;
       const [h, min] = med.time.split(':').map(Number);
       const slots = [];
       let t = new Date(day + 'T' + med.time + ':00');
