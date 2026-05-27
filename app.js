@@ -1086,7 +1086,7 @@ function renderMedHistory() {
     });
 
     // Prises au besoin
-const besoinPrises = Object.entries(dayDoses).filter(([k]) => k.startsWith('besoin_'));
+const besoinPrises = Object.entries(dayDoses || {}).filter(([k]) => k.startsWith('besoin_'));
 besoinPrises.forEach(([key, record]) => {
   html += `<tr class="row-ok">
     <td>${hasData ? '' : dayLabel}</td>
