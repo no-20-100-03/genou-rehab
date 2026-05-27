@@ -433,31 +433,42 @@
         <div class="ex-header-title">Mon programme</div>
       </div>
     </div>
-    <div class="screen-content">
-
-      <!-- PROGRAMME ACTIF -->
-      <div class="prog-section-title">Programme actif</div>
-      <div class="form-card">
-        <div class="form-group">
-          <label>Nom du programme</label>
-          <input type="text" id="prog-nom" placeholder="ex. Post-visite 15 mai">
-        </div>
-        <div class="prog-ex-title">Exercices inclus</div>
-
-        <div class="prog-categorie-label">🛏️ Couchés</div>
-        <div id="prog-list-couche" class="prog-ex-list"></div>
-
-        <div class="prog-categorie-label">🪑 Assis</div>
-        <div id="prog-list-assis" class="prog-ex-list"></div>
-
-        <div class="prog-categorie-label">🚶 Debout</div>
-        <div id="prog-list-debout" class="prog-ex-list"></div>
-
-        <div class="form-actions" style="margin-top:16px;">
-          <button class="cancel-btn" onclick="selectAllExercises()">Tout sélectionner</button>
-          <button class="submit-btn" onclick="saveProgramme()">Enregistrer</button>
-        </div>
+     <div class="screen-content">
+    <div id="prog-top"></div>
+  
+    <!-- ACTIONS EN HAUT -->
+    <div class="form-card" style="margin-top:12px;">
+      <div class="form-group">
+        <label>Nom du programme</label>
+        <input type="text" id="prog-nom" placeholder="ex. Post-visite 15 mai">
       </div>
+      <div class="form-actions">
+        <button class="cancel-btn" onclick="selectAllExercises()">Tout sélectionner</button>
+        <button class="cancel-btn" onclick="updateProgrammeActif()">✏️ Mettre à jour</button>
+        <button class="submit-btn" onclick="saveProgramme()">💾 Nouveau</button>
+      </div>
+    </div>
+
+    <!-- EXERCICES -->
+    <div class="form-card" style="margin-top:8px;">
+      <div class="prog-ex-title">Exercices inclus</div>
+
+      <div class="prog-categorie-label">🛏️ Couchés</div>
+      <div id="prog-list-couche" class="prog-ex-list"></div>
+
+      <div class="prog-categorie-label">🪑 Assis</div>
+      <div id="prog-list-assis" class="prog-ex-list"></div>
+
+      <div class="prog-categorie-label">🚶 Debout</div>
+      <div id="prog-list-debout" class="prog-ex-list"></div>
+    </div>
+
+    <!-- HISTORIQUE -->
+    <div class="prog-section-title">Historique des programmes</div>
+    <div id="prog-historique-list"></div>
+
+    <div style="height:80px;"></div>
+  </div>
 
       <!-- HISTORIQUE DES PROGRAMMES -->
       <div class="prog-section-title">Historique des programmes</div>
