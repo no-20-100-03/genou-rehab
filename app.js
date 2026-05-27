@@ -1209,6 +1209,10 @@ function renderProgrammeScreen() {
   // Historique
   renderProgHistorique();
   renderProgrammeActifLabel();
+  
+  const content = document.querySelector('#screen-programme .screen-content');
+  if (content) content.scrollTop = 0;
+  
 }
 
 function selectAllExercises() {
