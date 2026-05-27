@@ -1,7 +1,7 @@
 // ============================================================
 // VERSION
 // ============================================================
-const APP_VERSION = '1.5.2';
+const APP_VERSION = '1.5.3';
 
 // ============================================================
 // DONNÉES DES EXERCICES (tirées du PDF Kinatex)
@@ -1085,8 +1085,9 @@ function renderMedHistory() {
       });
     });
 
-    // Prises au besoin
-const besoinPrises = Object.entries(dayDoses || {}).filter(([k]) => k.startsWith('besoin_'));
+// Prises au besoin
+const allDayDoses = (doses[day] || {})[medIdStr] || (doses[day] || {})[medIdNum] || (doses[day] || {})[med.id] || {};
+const besoinPrises = Object.entries(allDayDoses).filter(([k]) => k.startsWith('besoin_'));
 besoinPrises.forEach(([key, record]) => {
   html += `<tr class="row-ok">
     <td>${hasData ? '' : dayLabel}</td>
