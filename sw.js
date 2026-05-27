@@ -17,26 +17,26 @@ self.addEventListener('activate', event => {
 });
 
 const FILES_TO_CACHE = [
-  '/',
-  '/index.html',
-  '/style.css',
-  '/app.js',
-  '/manifest.json',
-  '/images/icon-192.png',
-  '/images/icon-512.png',
-  '/images/ex-circulatoires.jpg',
-  '/images/ex-fessiers.jpg',
-  '/images/ex-quadricep.jpg',
-  '/images/ex-ischio.jpg',
-  '/images/ex-triple-flexion.jpg',
-  '/images/ex-abduction.jpg',
-  '/images/ex-extension-couche.jpg',
-  '/images/ex-slr.jpg',
-  '/images/ex-flexion-assis.jpg',
-  '/images/ex-extension-assis.jpg',
-  '/images/ex-minisquat.jpg',
-  '/images/ex-flexion-hanche.jpg',
-  '/images/ex-flexion-debout.jpg'
+  '/genou-rehab/',
+  '/genou-rehab/index.html',
+  '/genou-rehab/style.css',
+  '/genou-rehab/app.js',
+  '/genou-rehab/manifest.json',
+  '/genou-rehab/images/icon-192.png',
+  '/genou-rehab/images/icon-512.png',
+  '/genou-rehab/images/ex-circulatoires.jpg',
+  '/genou-rehab/images/ex-fessiers.jpg',
+  '/genou-rehab/images/ex-quadricep.jpg',
+  '/genou-rehab/images/ex-ischio.jpg',
+  '/genou-rehab/images/ex-triple-flexion.jpg',
+  '/genou-rehab/images/ex-abduction.jpg',
+  '/genou-rehab/images/ex-extension-couche.jpg',
+  '/genou-rehab/images/ex-slr.jpg',
+  '/genou-rehab/images/ex-flexion-assis.jpg',
+  '/genou-rehab/images/ex-extension-assis.jpg',
+  '/genou-rehab/images/ex-minisquat.jpg',
+  '/genou-rehab/images/ex-flexion-hanche.jpg',
+  '/genou-rehab/images/ex-flexion-debout.jpg'
 ];
 
 self.addEventListener('install', event => {
