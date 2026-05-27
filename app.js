@@ -1,7 +1,7 @@
 // ============================================================
 // VERSION
 // ============================================================
-const APP_VERSION = '1.5.4';
+const APP_VERSION = '1.5.5';
 
 // ============================================================
 // DONNÉES DES EXERCICES (tirées du PDF Kinatex)
@@ -136,8 +136,9 @@ function init() {
   renderGraphTab('semaine');
   renderStats();
   renderMedList();
-  requestNotifPermission();       // ← ligne ajoutée
-  scheduleMedNotifications();     // ← ligne ajoutée
+  renderProgrammeActifLabel();
+  requestNotifPermission();    
+  scheduleMedNotifications();   
   const versionEl = document.getElementById('app-version');
 if (versionEl) versionEl.textContent = APP_VERSION;
 }
@@ -180,12 +181,15 @@ function setDaysSinceOp() {
 // ============================================================
 // RENDU DES EXERCICES
 // ============================================================
+
 function renderExerciseLists() {
   const prog = getTodayProgress();
+  const programmeActif = getProgrammeActif();
+  const exercicesActifs = programmeActif.exercices;
   ['couche','assis','debout'].forEach(cat => {
     const container = document.getElementById('list-' + cat);
     container.innerHTML = '';
-    EXERCISES.filter(e => e.categorie === cat).forEach(ex => {
+    EXERCISES.filter(e => e.categorie === cat && exercicesActifs.includes(e.id)).forEach(ex => {
       const reps = prog.exercises[ex.id];
       const done = reps !== undefined;
       const card = document.createElement('div');
@@ -369,6 +373,7 @@ function showScreen(name) {
   'med-form': 'nav-med',
   'med-confirm': 'nav-med', 
   'med-besoin': 'nav-med',
+  'programme': 'nav-reglages',
   reglages: 'nav-reglages'  
 };
   if (navMap[name]) document.getElementById(navMap[name]).classList.add('active');
@@ -379,6 +384,7 @@ function showScreen(name) {
   if (name === 'reglages') renderReglages();  
   if (name === 'med') { renderMedList(); }
   if (name === 'med-confirm') { /* déjà géré dans openConfirmDose */ }
+  if (name === 'programme') renderProgrammeScreen();
   window.scrollTo(0, 0);
 }
 
@@ -1153,6 +1159,174 @@ function resetAllData() {
   renderGraphTab(currentGraphTab);
   renderStats();
   alert('✅ Historique effacé.');
+}
+
+// ============================================================
+// PROGRAMME PERSONNALISÉ
+// ============================================================
+
+function getProgrammeActif() {
+  const programmes = getData('programmes', []);
+  if (programmes.length === 0) {
+    // Programme par défaut — tous les exercices
+    return {
+      id: 'default',
+      numero: 1,
+      nom: 'Programme 1',
+      exercices: EXERCISES.map(e => e.id),
+      dateDebut: getTodayKey(),
+      dateFin: null
+    };
+  }
+  return programmes[programmes.length - 1];
+}
+
+function renderProgrammeScreen() {
+  const prog = getProgrammeActif();
+  document.getElementById('prog-nom').value = prog.nom || '';
+
+  // Rendu des cases à cocher par catégorie
+  ['couche', 'assis', 'debout'].forEach(cat => {
+    const container = document.getElementById('prog-list-' + cat);
+    if (!container) return;
+    container.innerHTML = EXERCISES
+      .filter(e => e.categorie === cat)
+      .map(e => `
+        <div class="prog-ex-item">
+          <label class="prog-ex-label">
+            <input type="checkbox"
+              class="prog-ex-check"
+              id="prog-check-${e.id}"
+              value="${e.id}"
+              ${prog.exercices.includes(e.id) ? 'checked' : ''}>
+            <span class="prog-ex-name">${e.emoji} ${e.nom}</span>
+          </label>
+        </div>
+      `).join('');
+  });
+
+  // Historique
+  renderProgHistorique();
+  renderProgrammeActifLabel();
+}
+
+function selectAllExercises() {
+  document.querySelectorAll('.prog-ex-check').forEach(cb => cb.checked = true);
+}
+
+function saveProgramme() {
+  const nom = document.getElementById('prog-nom').value.trim();
+  const checked = [...document.querySelectorAll('.prog-ex-check:checked')].map(cb => cb.value);
+
+  if (checked.length === 0) {
+    alert('Veuillez sélectionner au moins un exercice.');
+    return;
+  }
+
+  const programmes = getData('programmes', []);
+  const numero = programmes.length + 1;
+
+  // Ferme le programme précédent
+  if (programmes.length > 0) {
+    programmes[programmes.length - 1].dateFin = getTodayKey();
+  }
+
+  const nouveau = {
+    id: Date.now(),
+    numero: numero,
+    nom: nom || 'Programme ' + numero,
+    exercices: checked,
+    dateDebut: getTodayKey(),
+    dateFin: null
+  };
+
+  programmes.push(nouveau);
+  setData('programmes', programmes);
+  renderProgrammeActifLabel();
+  renderExerciseLists();
+  alert('✅ Programme ' + nouveau.nom + ' activé!');
+  showScreen('reglages');
+}
+
+function renderProgrammeActifLabel() {
+  const prog = getProgrammeActif();
+  const el = document.getElementById('programme-actif-label');
+  if (!el) return;
+  const nb = prog.exercices.length;
+  el.textContent = prog.nom + ' — ' + nb + ' exercice' + (nb > 1 ? 's' : '');
+}
+
+function renderProgHistorique() {
+  const container = document.getElementById('prog-historique-list');
+  if (!container) return;
+  const programmes = getData('programmes', []);
+
+  if (programmes.length === 0) {
+    container.innerHTML = '<div class="empty-state">Aucun programme sauvegardé.</div>';
+    return;
+  }
+
+  const mois = ['jan','fév','mar','avr','mai','jun','jul','aoû','sep','oct','nov','déc'];
+
+  function formatDateProg(dateStr) {
+    if (!dateStr) return 'Aujourd\'hui';
+    const d = new Date(dateStr + 'T12:00:00');
+    return d.getDate() + ' ' + mois[d.getMonth()] + ' ' + d.getFullYear();
+  }
+
+  container.innerHTML = [...programmes].reverse().map((p, i) => {
+    const isActif = p.dateFin === null;
+    const exNoms = p.exercices.map(id => {
+      const ex = EXERCISES.find(e => e.id === id);
+      return ex ? ex.emoji + ' ' + ex.nom : id;
+    });
+
+    return `<div class="prog-hist-card ${isActif ? 'prog-actif' : ''}">
+      <div class="prog-hist-top">
+        <div>
+          <div class="prog-hist-nom">${p.nom}
+            ${isActif ? '<span class="prog-actif-badge">Actif</span>' : ''}
+          </div>
+          <div class="prog-hist-dates">
+            ${formatDateProg(p.dateDebut)} → ${formatDateProg(p.dateFin)}
+          </div>
+        </div>
+        ${!isActif ? `<button class="settings-btn" onclick="reactiverProgramme(${p.id})">Réactiver</button>` : ''}
+      </div>
+      <div class="prog-hist-ex">
+        ${exNoms.map(n => `<span class="prog-ex-pill">${n}</span>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function reactiverProgramme(id) {
+  if (!confirm('Réactiver ce programme comme programme actif?')) return;
+  const programmes = getData('programmes', []);
+  const prog = programmes.find(p => p.id === id);
+  if (!prog) return;
+
+  // Ferme le programme actuel
+  const actuel = programmes.find(p => p.dateFin === null);
+  if (actuel) actuel.dateFin = getTodayKey();
+
+  // Crée une nouvelle entrée basée sur l'ancien
+  const numero = programmes.length + 1;
+  const nouveau = {
+    id: Date.now(),
+    numero: numero,
+    nom: prog.nom + ' (reprise)',
+    exercices: [...prog.exercices],
+    dateDebut: getTodayKey(),
+    dateFin: null
+  };
+
+  programmes.push(nouveau);
+  setData('programmes', programmes);
+  renderProgrammeActifLabel();
+  renderExerciseLists();
+  renderProgHistorique();
+  alert('✅ Programme réactivé!');
 }
 
 // ============================================================
