@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#1a73e8">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Réadaptation">
+  <title>Réadaptation Genou</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ÉCRAN : ACCUEIL -->
+  <div class="screen active" id="screen-home">
+    <div class="app-header">
+      <div class="header-top">
+        <div>
+          <div class="app-title">Réadaptation genou</div>
+          <div class="app-subtitle">Programme Kinatex post-opératoire</div>
+        </div>
+        <div class="header-day">J+<span id="days-since-op">0</span></div>
+      </div>
+      <div class="day-banner">
+        <div>
+          <div class="banner-label">Aujourd'hui</div>
+          <div class="banner-date" id="today-date"></div>
+        </div>
+        <div class="banner-sessions">
+          <div class="banner-label">Sessions</div>
+          <div class="banner-count"><span id="sessions-done">0</span> / 4</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="screen-content">
+      <div class="sessions-strip">
+        <div class="sessions-label">Sessions d'aujourd'hui</div>
+        <div class="sessions-row" id="sessions-row">
+          <div class="session-dot" id="s1"><span class="s-num">S1</span><span class="s-icon">○</span></div>
+          <div class="session-dot" id="s2"><span class="s-num">S2</span><span class="s-icon">○</span></div>
+          <div class="session-dot" id="s3"><span class="s-num">S3</span><span class="s-icon">○</span></div>
+          <div class="session-dot" id="s4"><span class="s-num">S4</span><span class="s-icon">○</span></div>
+        </div>
+      </div>
+
+      <div class="section-label">🛏️ Exercices couchés</div>
+      <div class="exercise-list" id="list-couche"></div>
+
+      <div class="section-label">🪑 Exercices assis</div>
+      <div class="exercise-list" id="list-assis"></div>
+
+      <div class="section-label">🚶 Exercices debout</div>
+      <div class="exercise-list" id="list-debout"></div>
+
+      <div style="height: 80px;"></div>
+    </div>
+  </div>
+
+  <!-- ÉCRAN : DÉTAIL EXERCICE -->
+  <div class="screen" id="screen-exercise">
+    <div class="app-header">
+      <div class="header-back-row">
+        <button class="back-btn" onclick="showScreen('home')">← Retour</button>
+        <div class="ex-header-title" id="ex-header-title"></div>
+      </div>
+    </div>
+    <div class="screen-content">
+      <div class="ex-image-box">
+        <img id="ex-image" src="" alt="Illustration exercice" onerror="this.style.display='none'; document.getElementById('ex-image-placeholder').style.display='flex'">
+        <div id="ex-image-placeholder" class="ex-image-placeholder">Illustration à venir</div>
+      </div>
+      <div class="ex-instr-box" id="ex-instr-box"></div>
+      <div class="reps-info-row">
+        <div class="rep-info-card"><div class="rep-big">10</div><div class="rep-small">Répétitions</div></div>
+        <div class="rep-info-card"><div class="rep-big">3–4×</div><div class="rep-small">Par jour</div></div>
+      </div>
+      <div class="set-completion-box">
+        <div class="set-label">Nombre de répétitions effectuées :</div>
+        <div class="set-row">
+          <select class="reps-select" id="reps-select">
+            <option value="">-- Choisir --</option>
+            <option value="1">1 répétition</option>
+            <option value="2">2 répétitions</option>
+            <option value="3">3 répétitions</option>
+            <option value="4">4 répétitions</option>
+            <option value="5">5 répétitions</option>
+            <option value="6">6 répétitions</option>
+            <option value="7">7 répétitions</option>
+            <option value="8">8 répétitions</option>
+            <option value="9">9 répétitions</option>
+            <option value="10">10 répétitions ✓ Complet</option>
+          </select>
+          <button class="confirm-set-btn" id="confirm-set-btn" onclick="confirmSet()">Enregistrer</button>
+        </div>
+        <div class="set-status" id="set-status"></div>
+      </div>
+      <div style="height: 80px;"></div>
+    </div>
+  </div>
+
+  <!-- ÉCRAN : SUIVI -->
+  <div class="screen" id="screen-suivi">
+    <div class="app-header">
+      <div class="app-title">Suivi</div>
+      <div class="app-subtitle">Progression des sessions</div>
+    </div>
+    <div class="screen-content">
+      <div class="graph-tabs">
+        <button class="g-tab active" id="tab-semaine" onclick="switchGraphTab('semaine')">Semaine</button>
+        <button class="g-tab" id="tab-mois" onclick="switchGraphTab('mois')">Mois</button>
+      </div>
+      <div id="graph-area"></div>
+      <div class="stats-row" id="stats-row"></div>
+      <div style="height: 80px;"></div>
+    </div>
+  </div>
+
+<!-- ÉCRAN : MÉDICATION -->
+<div class="screen" id="screen-med">
+  <div class="app-header">
+    <div class="app-title">Médication</div>
+    <div class="app-subtitle">Suivi des prises</div>
+  </div>
+  <div class="screen-content">
+
+    <div class="med-tabs">
+  <button class="med-tab active" id="medtab-actif" onclick="switchMedTab('actif')">Actif</button>
+  <button class="med-tab" id="medtab-historique" onclick="switchMedTab('historique')">Historique</button>
+  <button class="med-tab" id="medtab-archive" onclick="switchMedTab('archive')">Archivés</button>
+</div>
+
+    <!-- VUE ACTIVE -->
+    <div id="medview-actif">
+      <div class="med-top-row">
+        <span class="med-section-title">Médicaments actifs</span>
+        <button class="add-med-btn" onclick="showScreen('med-form')">+ Ajouter</button>
+      </div>
+      <div id="med-list">
+        <div class="empty-state">Aucun médicament enregistré.<br>Appuyez sur + Ajouter pour commencer.</div>
+        <div id="med-besoin-list"></div>
+      </div>
+    </div>
+
+    <!-- VUE HISTORIQUE -->
+    <div id="medview-historique" style="display:none;">
+      <div class="med-top-row">
+        <span class="med-section-title">Historique des prises</span>
+      </div>
+      <div id="med-history-content"></div>
+    </div>
+
+    <div style="height: 80px;"></div>
+  </div>
+</div>
+
+<!-- VUE ARCHIVÉS -->
+<div id="medview-archive" style="display:none;">
+  <div class="med-top-row">
+    <span class="med-section-title">Médicaments archivés</span>
+  </div>
+  <div id="med-archive-list"></div>
+</div>
+
+<!-- ÉCRAN : FORMULAIRE MÉDICAMENT -->
+<div class="screen" id="screen-med-form">
+  <div class="app-header">
+    <div class="header-back-row">
+      <button class="back-btn" onclick="showScreen('med')">← Retour</button>
+      <div class="ex-header-title">Ajouter un médicament</div>
+    </div>
+  </div>
+  <div class="screen-content">
+    <div class="form-card">
+      <div class="notif-info-box" id="notif-info-box"></div>
+
+      <div class="form-group">
+        <label>Nom du médicament</label>
+        <input type="text" id="med-name" placeholder="ex. Naproxène 500 mg">
+      </div>
+
+      <!-- TYPE : Horaire fixe ou Au besoin -->
+      <div class="form-group">
+        <label>Type de prescription</label>
+        <div class="type-toggle">
+          <button class="type-btn active" id="type-btn-fixe" onclick="selectMedType('fixe')">
+            🕐 Horaire fixe
+          </button>
+          <button class="type-btn" id="type-btn-besoin" onclick="selectMedType('besoin')">
+            ⚡ Au besoin
+          </button>
+        </div>
+      </div>
+
+      <!-- CHAMPS HORAIRE FIXE -->
+      <div id="form-fixe-fields">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Première prise</label>
+            <input type="time" id="med-time" value="08:00">
+          </div>
+          <div class="form-group">
+            <label>Intervalle</label>
+            <select id="med-interval">
+              <option value="4">4 heures</option>
+              <option value="6" selected>6 heures</option>
+              <option value="8">8 heures</option>
+              <option value="12">12 heures</option>
+              <option value="24">24 heures</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- CHAMPS AU BESOIN -->
+      <div id="form-besoin-fields" style="display:none;">
+        <div class="form-group">
+          <label>Intervalle minimum entre les prises</label>
+          <select id="med-interval-besoin">
+            <option value="2">2 heures</option>
+            <option value="4" selected>4 heures</option>
+            <option value="6">6 heures</option>
+            <option value="8">8 heures</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Nombre maximum de prises par jour</label>
+          <select id="med-max-doses">
+            <option value="2">2 prises</option>
+            <option value="3">3 prises</option>
+            <option value="4" selected>4 prises</option>
+            <option value="6">6 prises</option>
+            <option value="8">8 prises</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Note (optionnel)</label>
+        <input type="text" id="med-note" placeholder="ex. Avec nourriture">
+      </div>
+
+      <!-- DATE DE FIN -->
+      <div class="form-group">
+        <label>Date de fin (optionnel)</label>
+        <input type="date" id="med-end-date">
+        <div style="font-size:11px;color:#9e9e9e;margin-top:4px;">
+          Le médicament sera archivé automatiquement après cette date.
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Rappel notification</label>
+        <select id="med-notif">
+          <option value="0">À l'heure exacte</option>
+          <option value="15" selected>15 min avant</option>
+          <option value="30">30 min avant</option>
+        </select>
+      </div>
+
+      <div class="form-actions">
+        <button class="cancel-btn" onclick="showScreen('med')">Annuler</button>
+        <button class="submit-btn" onclick="saveMed()">Enregistrer</button>
+      </div>
+    </div>
+    <div style="height: 80px;"></div>
+  </div>
+</div>
+
+  <!-- NAVIGATION BAS DE PAGE -->
+<!-- ÉCRAN : RÉGLAGES -->
+<div class="screen" id="screen-reglages">
+  <div class="app-header">
+    <div class="app-title">Réglages</div>
+    <div class="app-subtitle">Configuration de l'application</div>
+  </div>
+  <div class="screen-content">
+
+    <div class="settings-section-title">Opération</div>
+    <div class="settings-card">
+      <div class="settings-row">
+        <div class="settings-info">
+          <div class="settings-label">Date d'opération</div>
+          <div class="settings-value" id="settings-op-date">Non définie</div>
+        </div>
+        <button class="settings-btn" onclick="changeOpDate()">Modifier</button>
+      </div>
+    </div>
+
+    <div class="settings-section-title">Données</div>
+    <div class="settings-card">
+      <div class="settings-row">
+        <div class="settings-info">
+          <div class="settings-label">Réinitialiser les exercices du jour</div>
+          <div class="settings-value">Remet les sessions à zéro pour aujourd'hui</div>
+        </div>
+        <button class="settings-btn warning" onclick="resetToday()">Réinitialiser</button>
+      </div>
+      <div class="settings-divider"></div>
+      <div class="settings-row">
+        <div class="settings-info">
+          <div class="settings-label">Effacer tout l'historique</div>
+          <div class="settings-value">Supprime toutes les données de progression</div>
+        </div>
+        <button class="settings-btn danger" onclick="resetAllData()">Effacer tout</button>
+      </div>
+    </div>
+
+    <div class="settings-section-title">Application</div>
+    <div class="settings-card">
+      <div class="settings-row">
+        <div class="settings-info">
+          <div class="settings-label">Version</div>
+          <div class="settings-value" id="app-version">1.0.0</div>
+        </div>
+      </div>
+      <div class="settings-divider"></div>
+      <div class="settings-row">
+        <div class="settings-info">
+          <div class="settings-label">Programme</div>
+          <div class="settings-value">Kinatex — Prothèse totale de genou</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="height: 80px;"></div>
+  </div>
+</div>
+
+<!-- ÉCRAN : CONFIRMATION PRISE -->
+<div class="screen" id="screen-med-confirm">
+  <div class="app-header">
+    <div class="header-back-row">
+      <button class="back-btn" onclick="showScreen('med')">← Retour</button>
+      <div class="ex-header-title">Confirmer la prise</div>
+    </div>
+  </div>
+  <div class="screen-content">
+    <div class="form-card">
+      <div class="confirm-med-name" id="confirm-med-name"></div>
+      <div class="confirm-med-dose" id="confirm-med-dose"></div>
+
+      <div class="form-group" style="margin-top:20px;">
+        <label>Heure réelle de la prise</label>
+        <input type="time" id="confirm-med-time">
+      </div>
+      <div class="form-group">
+        <label>Note optionnelle</label>
+        <input type="text" id="confirm-med-note" placeholder="ex. Pris avec nourriture">
+      </div>
+      <div class="confirm-scheduled-row">
+        <span class="confirm-scheduled-label">Heure prévue :</span>
+        <span class="confirm-scheduled-time" id="confirm-scheduled-time">--:--</span>
+      </div>
+      <div class="confirm-ecart" id="confirm-ecart"></div>
+      <button class="done-btn" style="margin-top:16px;" onclick="saveConfirmedDose()">
+        ✓ Confirmer la prise
+      </button>
+    </div>
+    <div style="height:80px;"></div>
+  </div>
+</div>
+
+<!-- ÉCRAN : PRISE AU BESOIN -->
+<div class="screen" id="screen-med-besoin">
+  <div class="app-header">
+    <div class="header-back-row">
+      <button class="back-btn" onclick="showScreen('med')">← Retour</button>
+      <div class="ex-header-title">Prise au besoin</div>
+    </div>
+  </div>
+  <div class="screen-content">
+    <div class="form-card">
+      <div class="confirm-med-name" id="besoin-med-name"></div>
+      <div class="confirm-med-dose" id="besoin-med-dose"></div>
+
+      <div class="besoin-status-box" id="besoin-status-box"></div>
+
+      <div class="form-group" style="margin-top:16px;">
+        <label>Heure de la prise</label>
+        <input type="time" id="besoin-med-time">
+      </div>
+      <div class="form-group">
+        <label>Note optionnelle</label>
+        <input type="text" id="besoin-med-note" placeholder="ex. Douleur intense">
+      </div>
+      <button class="done-btn" style="margin-top:8px;" onclick="saveBesoinDose()">
+        ⚡ Enregistrer la prise
+      </button>
+    </div>
+    <div style="height:80px;"></div>
+  </div>
+</div>
+
+<nav class="bottom-nav" id="bottom-nav">
+  <button class="nav-btn active" id="nav-home" onclick="showScreen('home')">
+    <span class="nav-icon">🏠</span>
+    <span class="nav-label">Accueil</span>
+  </button>
+  <button class="nav-btn" id="nav-suivi" onclick="showScreen('suivi')">
+    <span class="nav-icon">📊</span>
+    <span class="nav-label">Suivi</span>
+  </button>
+  <button class="nav-btn" id="nav-med" onclick="showScreen('med')">
+    <span class="nav-icon">💊</span>
+    <span class="nav-label">Médication</span>
+  </button>
+  <button class="nav-btn" id="nav-reglages" onclick="showScreen('reglages')">
+    <span class="nav-icon">⚙️</span>
+    <span class="nav-label">Réglages</span>
+  </button>
+</nav>
+
+  <script src="app.js"></script>
+</body>
+</html>
