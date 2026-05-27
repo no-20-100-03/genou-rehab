@@ -689,3 +689,7 @@ html, body {
   height: calc(100vh - 120px);
   -webkit-overflow-scrolling: touch;
 }
+
+#screen-programme .prog-ex-check:focus {
+  outline: none;
+}
