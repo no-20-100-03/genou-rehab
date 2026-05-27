@@ -1216,6 +1216,9 @@ function renderProgrammeScreen() {
   renderProgHistorique();
   renderProgrammeActifLabel();
   document.activeElement?.blur();
+  setTimeout(() => {
+  document.getElementById('prog-header')?.focus();
+  }, 100);
   
 }
 
