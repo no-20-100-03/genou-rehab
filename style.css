@@ -672,3 +672,8 @@ body {
   color: #1a73e8;
   border-color: #90caf9;
 }
+
+#screen-programme .screen-content {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
