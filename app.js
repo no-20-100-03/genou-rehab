@@ -1083,21 +1083,21 @@ function renderMedHistory() {
           <td>${ecart}</td>
         </tr>`;
       });
+
+      // Prises au besoin
+      const allDayDoses = (doses[day] || {})[medIdStr] || (doses[day] || {})[medIdNum] || (doses[day] || {})[med.id] || {};
+      const besoinPrises = Object.entries(allDayDoses).filter(([k]) => k.startsWith('besoin_'));
+      besoinPrises.forEach(([key, record]) => {
+        html += `<tr class="row-ok">
+          <td>${hasData ? '' : dayLabel}</td>
+          <td>⚡ Au besoin</td>
+          <td>${record.takenAt}</td>
+          <td>${record.note || '—'}</td>
+        </tr>`;
+        hasData = true;
     });
 
-// Prises au besoin
-const allDayDoses = (doses[day] || {})[medIdStr] || (doses[day] || {})[medIdNum] || (doses[day] || {})[med.id] || {};
-const besoinPrises = Object.entries(allDayDoses).filter(([k]) => k.startsWith('besoin_'));
-besoinPrises.forEach(([key, record]) => {
-  html += `<tr class="row-ok">
-    <td>${hasData ? '' : dayLabel}</td>
-    <td>⚡ Au besoin</td>
-    <td>${record.takenAt}</td>
-    <td>${record.note || '—'}</td>
-  </tr>`;
-  hasData = true;
-});
-
+    });
     
     if (!hasData) {
       html += `<tr><td colspan="4" style="text-align:center;color:#9e9e9e;padding:12px;">Aucune donnée pour les 7 derniers jours</td></tr>`;
