@@ -1,4 +1,4 @@
-const CACHE_NAME = 'genou-rehab-v8';
+const CACHE_NAME = 'genou-rehab-v9';
 
 self.addEventListener('install', event => {
   event.waitUntil(
