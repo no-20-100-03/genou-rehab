@@ -386,10 +386,13 @@ function showScreen(name) {
   if (name === 'med-confirm') { /* déjà géré dans openConfirmDose */ }
   if (name === 'programme') renderProgrammeScreen();
   window.scrollTo(0, 0);
-  setTimeout(() => {
-    const activeContent = document.querySelector('.screen.active .screen-content');
-    if (activeContent) activeContent.scrollTop = 0;
-  }, 150);
+  document.body.scrollTop = 0;
+  document.documentElement.scrollTop = 0;
+  const activeContent = document.querySelector('.screen.active .screen-content');
+  if (activeContent) {
+    activeContent.scrollTop = 0;
+    activeContent.scrollIntoView({ behavior: 'instant', block: 'start' });
+  }
 }
 
 // ============================================================
