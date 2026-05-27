@@ -1,7 +1,7 @@
 // ============================================================
 // VERSION
 // ============================================================
-const APP_VERSION = '1.5.5';
+const APP_VERSION = '1.5.6';
 
 // ============================================================
 // DONNÉES DES EXERCICES (tirées du PDF Kinatex)
@@ -386,6 +386,7 @@ function showScreen(name) {
   if (name === 'med-confirm') { /* déjà géré dans openConfirmDose */ }
   if (name === 'programme') renderProgrammeScreen();
   window.scrollTo(0, 0);
+  document.querySelector('.screen.active .screen-content')?.scrollTo(0, 0);
 }
 
 // ============================================================
